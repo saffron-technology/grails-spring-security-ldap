@@ -14,8 +14,7 @@
  */
 package org.codehaus.groovy.grails.plugins.springsecurity.ldap;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import org.codehaus.groovy.grails.plugins.springsecurity.GrailsUserDetailsService;
 import org.springframework.beans.factory.InitializingBean;
@@ -61,10 +60,11 @@ public class GrailsLdapAuthoritiesPopulator extends DefaultLdapAuthoritiesPopula
 	public GrantedAuthority cleanRole(GrantedAuthority role) {
 		if (role instanceof GrantedAuthorityImpl) {
 			GrantedAuthorityImpl newRole = (GrantedAuthorityImpl) role;
-
+			System.out.println("role:" + role.getAuthority());
+			System.out.println("is uppercase:" + _roleToUpperCase);
 			if (_roleConvertDashes && newRole.getAuthority().indexOf('-') > -1) {
 				// replace dashes
-				newRole = new GrantedAuthorityImpl(newRole.getAuthority().replaceAll("-", "_"));
+				newRole = new GrantedAuthorityImpl(newRole.getAuthority().replaceAll("-", "_" ));
 			}
 
 			if (_roleToUpperCase && !newRole.getAuthority().toUpperCase().equals(newRole.getAuthority())) {
@@ -73,13 +73,18 @@ public class GrailsLdapAuthoritiesPopulator extends DefaultLdapAuthoritiesPopula
 			}
 
 			if (_roleStripPrefix != null) {
-				// strip prefix if found
-				String tempPrefix = _rolePrefix + _roleStripPrefix;
-				if (tempPrefix != null && tempPrefix.length() > 0 
-						&& newRole.getAuthority().indexOf(tempPrefix) == 0
-						&& newRole.getAuthority().length() > tempPrefix.length()) {
-					// replace dashes
-					newRole = new GrantedAuthorityImpl(newRole.getAuthority().replace(tempPrefix, _rolePrefix).trim());
+
+				String[] prefixes = _roleStripPrefix.split("," );
+				Arrays.sort(prefixes, new Comparator<String>() {
+					@Override
+					public int compare(String s, String t1) {
+						return t1.length() - s.length();
+					}
+				});
+				System.out.println("Checking prefixes:");
+				System.out.println(Arrays.asList(prefixes));
+				for (String stripPrefix : prefixes) {
+					newRole = checkPrefix(stripPrefix, newRole);
 				}
 			}
 
@@ -107,6 +112,18 @@ public class GrailsLdapAuthoritiesPopulator extends DefaultLdapAuthoritiesPopula
 		} else {
 			return role;
 		}
+	}
+
+	private GrantedAuthorityImpl checkPrefix(String stripPrefix, GrantedAuthorityImpl newRole) {
+		// strip prefix if found
+		String tempPrefix = _rolePrefix + stripPrefix;
+		if (tempPrefix != null && tempPrefix.length() > 0
+                && newRole.getAuthority().indexOf(tempPrefix) == 0
+                && newRole.getAuthority().length() > tempPrefix.length()) {
+            // replace dashes
+            newRole = new GrantedAuthorityImpl(newRole.getAuthority().replace(tempPrefix, _rolePrefix).trim());
+        }
+		return newRole;
 	}
 
 	@Override
